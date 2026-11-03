@@ -1,0 +1,16 @@
+# requirements.txt for python venv
+
+# ROS development/build tooling
+colcon-common-extensions
+
+# Video data processing
+numpy
+opencv-python
+
+# Inference
+onnxruntime
+ultralytics
+
+# Object Tracking
+supervision
+trackers

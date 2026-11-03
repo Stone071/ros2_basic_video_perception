@@ -1,0 +1,14 @@
+# Ignore 
+__pycache__/*
+*.pyc
+__init__.py
+.venv/
+build/
+install/
+log/
+models/
+sidebar/
+src/perception_stack/package.xml
+src/perception_stack/resource/
+src/perception_stack/test/
+video-data/
