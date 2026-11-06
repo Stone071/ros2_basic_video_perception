@@ -24,9 +24,9 @@ class VideoPublisherNode(Node):
     
     # Any data for which we desire real-time performance should prefer BEST_EFFORT publishing
     # over RELIABLE publishing, reducing latency of published messages
-    publish_deadline = Duration(nanoseconds=50000000) # 50ms
+    publish_deadline = Duration(nanoseconds=400000000) # 400ms
     message_lifespan = Duration(nanoseconds=100000000) # 100ms
-    lease_duration = Duration(nanoseconds=200000000) # 200ms
+    lease_duration = Duration(nanoseconds=500000000) # 500ms
     publish_queue_depth = 5
     video_streamer_qos = QoSProfile(
             history=HistoryPolicy.KEEP_ALL,
@@ -43,7 +43,7 @@ class VideoPublisherNode(Node):
     def __init__(self):
         # Call Node class init func
         super().__init__("video_publisher_node")
-        
+
         # Temp timing
         self.last_report_time = None
         self.publish_count = 0
@@ -63,6 +63,8 @@ class VideoPublisherNode(Node):
             use_default_callbacks=True
         )
 
+
+
         # Init the publisher
         self.publisher = self.create_publisher(
             Image,                               # message type
@@ -81,8 +83,8 @@ class VideoPublisherNode(Node):
 
         # Init publish timer
         self.timer = self.create_timer(
-            (1.0 / self.cap.get(cv2.CAP_PROP_FPS)), # period, units of seconds
-            #0.33, # 330ms period
+            #(1.0 / self.cap.get(cv2.CAP_PROP_FPS)), # period, units of seconds
+            0.33, # 330ms period
             self._publish_frame # timer calls this callback
         )
 
@@ -96,7 +98,7 @@ class VideoPublisherNode(Node):
 
     # Name as a "private" method
     def _subscriber_matched_callback(self, info):
-        self.get_logger().info(f"There are now {info.current_count} matched subscribers on" \
+        self.get_logger().info(f"There are now {info.current_count} matched subscribers on " \
             f'"{VideoPublisherNode.topic}"')
 
     # Name as a "private" method
@@ -115,11 +117,11 @@ class VideoPublisherNode(Node):
     def _publish_frame(self):
         # Temp timing check
         self.publish_count += 1
-        if self.publish_count % 100 == 0:
+        if self.publish_count % 50 == 0:
             now = self.get_clock().now()
             if self.last_report_time is not None:
                 elapsed = (now - self.last_report_time).nanoseconds / 1e9
-                rate = 100 / elapsed
+                rate = 50 / elapsed
                 self.get_logger().info(f"Pub'ing at {rate:.2f} Hz")
             self.last_report_time = now
 
@@ -132,6 +134,7 @@ class VideoPublisherNode(Node):
                 # the video probably ended
                 self._seek_video_beginning()
                 success, self.this_frame = self.cap.read()
+            self.this_frame = cv2.resize(self.this_frame, (640,640))
 
         # Reset next frame
         self.next_frame = None

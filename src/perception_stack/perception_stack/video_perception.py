@@ -44,9 +44,9 @@ class VideoPerceptionNode(Node):
     
     # Any data for which we desire real-time performance should prefer BEST_EFFORT publishing
     # over RELIABLE publishing, reducing latency of published messages
-    receive_deadline = Duration(nanoseconds=70000000) # 70ms, must be > publisher deadline
+    receive_deadline = Duration(nanoseconds=500000000) # 500ms, must be > publisher deadline
     message_lifespan = Duration(nanoseconds=100000000) # 100ms
-    lease_duration = Duration(nanoseconds=200000000) # 200ms
+    lease_duration = Duration(nanoseconds=500000000) # 500ms
     receive_queue_depth = 5
     video_receiver_qos = QoSProfile(
             history=HistoryPolicy.KEEP_LAST,
@@ -158,7 +158,7 @@ class VideoPerceptionNode(Node):
             
             # Check inference time
             deltaT = self.get_clock().now() - t0
-            if (deltaT.nanoseconds > 33000000): # UPDATE THIS TO BE BASED ON FRAME RATE
+            if (deltaT.nanoseconds > 33000000): # replace this with a service call
                 self.get_logger().warn(f"Inference took {deltaT}, falling behind real time.")
             else:
                 self.get_logger().info(f"Inference took {deltaT}")
