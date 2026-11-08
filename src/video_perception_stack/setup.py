@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-package_name = 'perception_stack'
+package_name = 'video_perception_stack'
 
 setup(
     name=package_name,
@@ -24,8 +24,8 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'video_publisher = perception_stack.video_publisher:main',
-            'video_perception = perception_stack.video_perception:main',
+            'video_publisher = video_perception_stack.video_publisher:main',
+            'video_perception = video_perception_stack.video_perception:main',
         ],
     },
 )

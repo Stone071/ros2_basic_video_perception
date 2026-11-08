@@ -171,7 +171,7 @@ class RoboticsTracker:
     def __init__(self):
         # track buffer controls how long a track
         # survives without a matching detection.
-        self.tracker = ByteTracker(
+        self.tracker = ByteTrackTracker(
             track_thresh=0.45,
             match_thresh=0.8,
             track_buffer=30,
@@ -251,18 +251,19 @@ def img_msg_to_cv2(msg: Image) -> np.ndarray:
 
 def run_onnx_inference(frame: np.ndarray):
     # Preprocess: resize, normalize, add batch dimensions, convert to float32
-    if (np.shape(frame) != (640,640)):
-        img = cv2.resize(frame, (640,640))
-    img = img.astype(np.float32) / 255.0
-    img = img.transpose(2, 0, 1)      # HWC to CHW
-    img = np.expand_dims(img, axis=0) # add batch dimension
+    if (np.shape(frame) != (640,640,3)):
+        frame = cv2.resize(frame, (640,640))
+    frame = frame.astype(np.float32) / 255.0
+    frame = frame.transpose(2, 0, 1)      # HWC to CHW
+    frame = np.expand_dims(frame, axis=0) # add batch dimension
 
-    outputs = SESSION.run(None, {"images": img})
+    outputs = SESSION.run(None, {"images": frame})
     return outputs
 
 def main():
     rclpy.init()
     node = VideoPerceptionNode()
+    tracker = RoboticsTracker()
     rclpy.spin(node)
     node.destroy_node()
     rclpy.shutdown()

@@ -1,6 +1,6 @@
 from ultralytics import YOLO
 
-def export_perception_model(weights_path: str, output_path: str):
+def export_perception_model(input_model: str):
     """
     Exports a YOLOv11 model to ONNX format for edge deployment.
 
@@ -9,7 +9,7 @@ def export_perception_model(weights_path: str, output_path: str):
     of frames without needing to be re-exported. This is useful 
     for testing batched input during benchmarking.
     """
-    model = YOLO(weights_path)
+    model = YOLO(input_model)
 
     # Export using ultralytics built in ONNX export.
     # opset=17 is recommended for compatibility
@@ -18,17 +18,14 @@ def export_perception_model(weights_path: str, output_path: str):
     model.export(
         format="onnx",
         imgsz=640,
-        opset=17,
-        dynamic=True, # dynamic batch size
-        simplify=True
+        # opset=17,
+        dynamic=False, # non dynamic batch size
+        simplify=True,
+        batch=1, # we are always processing images one at a time
+        # optimize=False # setting to optimize for DEEPX hardware
     )
-
-    print(f"Model exported to {output_path}")
 
 if __name__=="__main__":
-    export_perception_model(
-        weights_path="models/yolo11n.pt",
-        output_path="models/perception.onnx"
-    )
+    export_perception_model(input_model="models/yolo11n.pt")
 
     
