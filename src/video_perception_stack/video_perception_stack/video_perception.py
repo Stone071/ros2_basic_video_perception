@@ -15,8 +15,8 @@ from ultralytics import YOLO
 import onnxruntime as ort
 import cv2
 import numpy as np
-from supervision import Detections
-from trackers import ByteTrackTracker
+#from supervision import Detections
+#from trackers import ByteTrackTracker
 
 ### GLOBALS ###
 CONF_THRESH = 0.45
@@ -166,74 +166,6 @@ class VideoPerceptionNode(Node):
             #detections = results[0].boxes
             #self.get_logger().info(f"Detected {len(detections)} objects above threshold {CONF_THRESH}")
 
-class RoboticsTracker:
-    ### METHODS ###
-    def __init__(self):
-        # track buffer controls how long a track
-        # survives without a matching detection.
-        self.tracker = ByteTrackTracker(
-            track_thresh=0.45,
-            match_thresh=0.8,
-            track_buffer=30,
-            frame_rate=30,
-        )
-
-    def update(self, yolo_results, frame_shape):
-        # Since we feed one frame at a time, there is one result object in results
-        boxes = yolo_results[0].boxes
-
-        if len(boxes) == 0:
-            return []
-
-        # Get a numpy array of the detected bounding boxes and metadata
-        xyxy = boxes.xyxy.cpu().numpy()
-        confidence = boxes.conf.cpu().numpy()
-        class_ids = boxes.cls.cpu().numpy().astype(int)
-
-        # Make a detections object
-        detections = Detections(
-            xyxy=xyxy,
-            confidence=confidence,
-            class_id=class_ids
-        )
-
-        # Feed the detections object to the tracker
-        tracked = self.tracker.update(
-            detections=detections,
-            frame_resolution_wh=(frame_shape[1], frame_shape[0])
-        )
-
-        # tracked.tracker_id gives each detection a stable integer ID
-        # that persists across frames as long as the track is alive.
-        return tracked
-
-
-### GLOBALS ###
-CONF_THRESH = 0.45
-MIN_TRACK_AGE = 3      # frames a track must exist before being trusted
-JITTER_THRESH = 2.0 # maximum acceptable platform acceleration
-
-
-### FILE FUNCS ###
-def is_actionable_detection(detection, track_age: int, platform_acceleration: float):
-    """
-    Cross check each detection with its age and any platform acceleration before trusting it
-    Returns True only when all three
-    1. Model confidence above threshold
-    2. Track has existed long enough to not be noise
-    3. Platform carrying the sensor is not vibrating or accelerating
-       sharply enough to corrupt the sensor data
-    """
-    if detection.confidence < CONF_THRESH:
-        return False, "low_confidence"
-
-    if track_age < MIN_TRACK_AGE:
-        return False, "track_not_stabilized"
-
-    if platform_acceleration > JITTER_THRESH:
-        return False, "platform_unstable"
-
-    return True, "actionable"
 
 def img_msg_to_cv2(msg: Image) -> np.ndarray:
     channels_by_encoding = {
@@ -263,7 +195,6 @@ def run_onnx_inference(frame: np.ndarray):
 def main():
     rclpy.init()
     node = VideoPerceptionNode()
-    tracker = RoboticsTracker()
     rclpy.spin(node)
     node.destroy_node()
     rclpy.shutdown()
