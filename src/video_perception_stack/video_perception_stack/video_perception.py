@@ -8,22 +8,24 @@ import rclpy
 from rclpy.duration import Duration
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy, LivelinessPolicy
-from rclpy.qos import qos_profile_sensor_data
+#from rclpy.qos import qos_profile_sensor_data
 from rclpy.event_handler import SubscriptionEventCallbacks
 from sensor_msgs.msg import Image
 from ultralytics import YOLO
 import onnxruntime as ort
 import cv2
 import numpy as np
+from std_srvs.srv import Trigger
 #from supervision import Detections
 #from trackers import ByteTrackTracker
 
 ### GLOBALS ###
 CONF_THRESH = 0.45
-SESSION = ort.InferenceSession(
-    "models/yolo11n.onnx",
-    providers=["CUDAExecutionProvider","CPUExecutionProvider"]
-)
+#SESSION = ort.InferenceSession(
+#    "models/yolo11n.onnx",
+#    providers=["CUDAExecutionProvider","CPUExecutionProvider"]
+#)
+#MODEL = YOLO("models/yolo11n_openvino_model/")
 
 ### CLASS DEFS ###
 class VideoPerceptionNode(Node):
@@ -65,7 +67,8 @@ class VideoPerceptionNode(Node):
         super().__init__("video_perception_node")
         
         # Load Yolo11 nano
-        self.model = YOLO("models/yolo11n.pt")
+        #self.model = YOLO("models/yolo11n.pt")
+        self.model = YOLO("models/yolo11n_openvino_model/")
 
         # Receive callbacks when there are QoS issues
         subscriber_event_callbacks = SubscriptionEventCallbacks(
@@ -83,14 +86,18 @@ class VideoPerceptionNode(Node):
             VideoPerceptionNode.topic, # subbed topic
             self._image_callback,       # callback for each message
             VideoPerceptionNode.video_receiver_qos, # QoS preferring real-time to reliable
-            #10,
-            #qos_profile_sensor_data,
             event_callbacks=subscriber_event_callbacks # register our callbacks
         )
 
         # Place frames for perception into a bounded queue.
         # Frames will drop if queue is full
         self.frame_queue = queue.Queue(maxsize=5)
+
+        # Setup frame rate request
+        #self.rate_req = Trigger.Request() 
+        self.published_frame_rate = None
+        self.frame_rate_none_count = 0
+        self.rate_client = self.create_client(Trigger, 'rate_query_service')
 
         # Start a thread which runs the inference
         self.inference_thread = threading.Thread(
@@ -143,6 +150,16 @@ class VideoPerceptionNode(Node):
     # Name as "private"
     def _run_inference(self):
         while rclpy.ok():
+            # Request frame timing if not already had
+            if (self.published_frame_rate is None):
+                if (self.frame_rate_none_count == 0):
+                    self._request_frame_rate()
+                    self.get_logger().info("Requested publisher frame rate")
+                else:
+                    self.frame_rate_none_count += 1
+                    if (self.frame_rate_none_count >= 100):
+                        self.frame_rate_none_count = 0
+
             # Get a message
             msg = self.frame_queue.get()
 
@@ -153,19 +170,32 @@ class VideoPerceptionNode(Node):
             frame = img_msg_to_cv2(msg)
 
             # Run inference
-            #results = self.model(frame, conf=CONF_THRESH, verbose=False)
-            results = run_onnx_inference(frame)
+            results = self.model(frame, conf=CONF_THRESH, verbose=False)
+            #results = run_onnx_inference(frame)
             
             # Check inference time
             deltaT = self.get_clock().now() - t0
-            if (deltaT.nanoseconds > 33000000): # replace this with a service call
+            if (self.published_frame_rate is not None) and (deltaT.nanoseconds > self.published_frame_rate):
                 self.get_logger().warn(f"Inference took {deltaT}, falling behind real time.")
             else:
                 self.get_logger().info(f"Inference took {deltaT}")
 
-            #detections = results[0].boxes
-            #self.get_logger().info(f"Detected {len(detections)} objects above threshold {CONF_THRESH}")
+            detections = results[0]
+            self.get_logger().info(f"Detected {len(detections)} objects above threshold {CONF_THRESH}")
+            classIds = detections.boxes.cls.int().tolist()
+            names = [detections.names[i] for i in classIds]
+            self.get_logger().info(f"Objects: {names}")
 
+    # Name as "private"
+    def _request_frame_rate(self):
+        req = Trigger.Request()
+        self.future = self.rate_client.call_async(req)
+        self.future.add_done_callback(self._frame_rate_callback)
+
+    # Name as "private"
+    def _frame_rate_callback(self, future):
+        self.published_frame_rate = float(future.result().message)*10e9
+        self.get_logger().info(f"Published frame rate set to {self.published_frame_rate}")
 
 def img_msg_to_cv2(msg: Image) -> np.ndarray:
     channels_by_encoding = {

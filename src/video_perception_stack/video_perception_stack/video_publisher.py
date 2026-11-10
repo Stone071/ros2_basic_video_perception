@@ -8,6 +8,7 @@ from rclpy.event_handler import PublisherEventCallbacks
 from sensor_msgs.msg import Image
 import numpy as np
 import cv2
+from std_srvs.srv import Trigger
 
 # GLOBALS
 VIDEO_PATH = "video-data/00477198-d980-4010-be20-097f2acb5bdf.mp4_00477198-d980-4010-be20-097f2acb5bdf.mp4"
@@ -63,8 +64,6 @@ class VideoPublisherNode(Node):
             use_default_callbacks=True
         )
 
-
-
         # Init the publisher
         self.publisher = self.create_publisher(
             Image,                               # message type
@@ -82,14 +81,24 @@ class VideoPublisherNode(Node):
             exit()
 
         # Init publish timer
+        #self.publish_period = (1.0 / self.cap.get(cv2.CAP_PROP_FPS))
+        self.publish_period = 0.33 # 330 ms
         self.timer = self.create_timer(
-            #(1.0 / self.cap.get(cv2.CAP_PROP_FPS)), # period, units of seconds
-            0.33, # 330ms period
+            self.publish_period, # period, units of seconds
             self._publish_frame # timer calls this callback
         )
+        
+        # Set up the framerate query service
+        self.rate_query_service = self.create_service(Trigger, 'rate_query_service', self._rate_query_service_callback)
 
         # VideoPublisherNode ready
         self.get_logger().info(f"{self.get_name()} ready")
+
+    # Name as a "private" method
+    def _rate_query_service_callback(self, request, response):
+        response.success = True
+        response.message = str(self.publish_period)
+        return response
 
     # Name as a "private" method
     def _incompatible_qos_callback(self, info):
