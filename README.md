@@ -22,11 +22,7 @@ Some of the tasks ROS makes really easy that are important in large real-time sy
 
 This project is composed of two nodes communicating through a single topic. The first node reads in a video file using OpenCV2 and publishes individual frames onto the topic at the frame rate of the video. This is approximately the same as what would be happening in a live system with a camera feed.
 
-The second node subscribes to the topic and receives each frame, placing the frame into its own internal queue to be consumed for inference performed by ONNX runtime, which is running the YOLOv11 computer vision model converted to .onnx format.
-
-The inference node identifies objects in the frame and tracks their movement across frames.
-
-![Project Architecture Diagram](ros2-basic-video-perception-architecture.png)
+The second node subscribes to the topic and receives each frame, placing the frame into its own internal queue to be consumed for inference performed by OpenVINO, which is running the YOLOv11 computer vision model.
 
 ## Linux/Middleware Environment Customizations
 
@@ -158,19 +154,13 @@ Developing real-time systems in Python is an interesting change for me. To be ho
 
 - Setting up a ROS2 Python package
 - Basic ROS tools
-    - ros2 topic list -t
-    - ros2 topic hz
-    - ros2 topic bw
-    - ros2 service list -t
-    - ros2 interface show
-    - `$dir(rclpy)` where documentation is lacking
+    - `ros2 topic list -t`
+    - `ros2 topic hz {topic}`
+    - `ros2 topic bw {topic}`
+    - `ros2 service list -t`
+    - `ros2 interface show {.srv}`
+    - `>>> dir(rclpy)` for exploration of Python module
 - ROS2 Quality of Service Controls
 - Basics of using computer vision models in Python
 - Debugging and configuring Linux/RMW for transmitting large messages
 - Sourcing datasets from HuggingFace
-
-I am actually not going to use carla, since I cannot fit the simulator on my machine. I will download some datasets from huggingface. I will start with [this](https://huggingface.co/datasets/HumynLabs/Street-videos) one.
-
-Alright what I ended up doing is using the install script to install the hf tool and then using the hf download command. This seems to have sourced the data correctly and now opencv is able to open video.
-
-`hf download HumynLabs/Street-videos --repo-type=dataset`
